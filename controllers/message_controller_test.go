@@ -1,0 +1,83 @@
+package controllers
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"hsduc.com/rag/database"
+	"hsduc.com/rag/models"
+)
+
+func TestCreateMessage(t *testing.T) {
+	SetupTestDB()
+	r := GetTestRouter()
+	r.POST("/messages", CreateMessage)
+
+	// Create a conversation first to associate the message
+	conversation := models.Conversation{Title: "Test Conversation"}
+	database.DB.Create(&conversation)
+
+	// Test valid input
+	payload := []byte(fmt.Sprintf(`{"conversation_id":%d, "role":"user", "content":"Hello Assistant"}`, conversation.ID))
+	req, _ := http.NewRequest("POST", "/messages", bytes.NewBuffer(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var message models.Message
+	err := json.Unmarshal(w.Body.Bytes(), &message)
+	assert.NoError(t, err)
+	assert.Equal(t, conversation.ID, message.ConversationID)
+	assert.Equal(t, "user", message.Role)
+	assert.Equal(t, "Hello Assistant", message.Content)
+	assert.NotZero(t, message.ID)
+
+	// Test invalid conversation ID (Not Found)
+	payloadInvalid := []byte(`{"conversation_id":999, "role":"user", "content":"Lost Message"}`)
+	reqInvalid, _ := http.NewRequest("POST", "/messages", bytes.NewBuffer(payloadInvalid))
+	reqInvalid.Header.Set("Content-Type", "application/json")
+	wInvalid := httptest.NewRecorder()
+
+	r.ServeHTTP(wInvalid, reqInvalid)
+	assert.Equal(t, http.StatusNotFound, wInvalid.Code)
+}
+
+func TestGetMessages(t *testing.T) {
+	SetupTestDB()
+	r := GetTestRouter()
+	r.GET("/messages", GetMessages)
+
+	// setup data
+	conversation := models.Conversation{Title: "Chat"}
+	database.DB.Create(&conversation)
+	database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "user", Content: "Hello"})
+	database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "assistant", Content: "Hi there"})
+
+	// test valid GET message by conversation_id
+	req, _ := http.NewRequest("GET", fmt.Sprintf("/messages?conversation_id=%d", conversation.ID), nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var messages []models.Message
+	err := json.Unmarshal(w.Body.Bytes(), &messages)
+	assert.NoError(t, err)
+	assert.Len(t, messages, 2)
+	assert.Equal(t, "Hello", messages[0].Content)
+	assert.Equal(t, "Hi there", messages[1].Content)
+
+	// test GET missing conversation_id
+	reqMissing, _ := http.NewRequest("GET", "/messages", nil)
+	wMissing := httptest.NewRecorder()
+	r.ServeHTTP(wMissing, reqMissing)
+	assert.Equal(t, http.StatusBadRequest, wMissing.Code)
+}
