@@ -8,15 +8,30 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"hsduc.com/rag/database"
+	"hsduc.com/rag/dtos"
 	"hsduc.com/rag/models"
 )
 
+// @Summary      Create Message
+// @Description  Create a new message
+// @Tags         Messages
+// @Accept       json
+// @Produce      json
+// @Param        body body dtos.CreateMessageRequest true "Message Request"
+// @Success      201  {object}  models.Message
+// @Router       /api/v1/messages [post]
 func CreateMessage(c *gin.Context) {
-	var input models.Message
+	var bodyInterface dtos.CreateMessageRequest
 
-	if err := c.ShouldBindJSON(&input); err != nil {
+	if err := c.ShouldBindJSON(&bodyInterface); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	input := models.Message{
+		ConversationID: bodyInterface.ConversationID,
+		Role:           bodyInterface.Role,
+		Content:        bodyInterface.Content,
 	}
 
 	// Verify conversation exists
@@ -38,6 +53,13 @@ func CreateMessage(c *gin.Context) {
 	c.JSON(http.StatusCreated, input)
 }
 
+// @Summary      Get Messages
+// @Description  Get messages for a conversation
+// @Tags         Messages
+// @Produce      json
+// @Param        conversation_id query string true "Conversation ID"
+// @Success      200  {array}   models.Message
+// @Router       /api/v1/messages [get]
 func GetMessages(c *gin.Context) {
 	conversationID := c.Query("conversation_id")
 	if conversationID == "" {
@@ -54,6 +76,13 @@ func GetMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, messages)
 }
 
+// @Summary      Get Message
+// @Description  Get a message by id
+// @Tags         Messages
+// @Produce      json
+// @Param        id   path      string  true  "Message ID"
+// @Success      200  {object}  models.Message
+// @Router       /api/v1/messages/{id} [get]
 func GetMessage(c *gin.Context) {
 	id := c.Param("id")
 	var message models.Message
@@ -66,6 +95,15 @@ func GetMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, message)
 }
 
+// @Summary      Update Message
+// @Description  Update a message by id
+// @Tags         Messages
+// @Accept       json
+// @Produce      json
+// @Param        id   path      string  true  "Message ID"
+// @Param        body body dtos.UpdateMessageRequest true "Message Request"
+// @Success      200  {object}  models.Message
+// @Router       /api/v1/messages/{id} [put]
 func UpdateMessage(c *gin.Context) {
 	id := c.Param("id")
 	var message models.Message
@@ -75,9 +113,7 @@ func UpdateMessage(c *gin.Context) {
 		return
 	}
 
-	var input struct {
-		Content string `json:"content" binding:"required"`
-	}
+	var input dtos.UpdateMessageRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -89,6 +125,13 @@ func UpdateMessage(c *gin.Context) {
 	c.JSON(http.StatusOK, message)
 }
 
+// @Summary      Delete Message
+// @Description  Delete a message by id
+// @Tags         Messages
+// @Produce      json
+// @Param        id   path      string  true  "Message ID"
+// @Success      200  {object}  map[string]interface{}
+// @Router       /api/v1/messages/{id} [delete]
 func DeleteMessage(c *gin.Context) {
 	id := c.Param("id")
 	var message models.Message

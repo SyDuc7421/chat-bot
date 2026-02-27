@@ -1,0 +1,295 @@
+basePath: /
+definitions:
+  dtos.CreateConversationRequest:
+    properties:
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  dtos.CreateMessageRequest:
+    properties:
+      content:
+        type: string
+      conversation_id:
+        type: integer
+      role:
+        type: string
+    required:
+    - content
+    - conversation_id
+    - role
+    type: object
+  dtos.UpdateConversationRequest:
+    properties:
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  dtos.UpdateMessageRequest:
+    properties:
+      content:
+        type: string
+    required:
+    - content
+    type: object
+  models.Conversation:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/models.Message'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Message:
+    properties:
+      content:
+        type: string
+      conversation_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      role:
+        description: e.g., "user", "assistant"
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a RAG chatbot server.
+  title: Chatbot RAG API
+  version: "1.0"
+paths:
+  /api/v1/conversations:
+    get:
+      description: Get all conversations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Conversation'
+            type: array
+      summary: Get Conversations
+      tags:
+      - Conversations
+    post:
+      consumes:
+      - application/json
+      description: Create a new conversation
+      parameters:
+      - description: Conversation Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dtos.CreateConversationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Conversation'
+      summary: Create Conversation
+      tags:
+      - Conversations
+  /api/v1/conversations/{id}:
+    delete:
+      description: Delete a conversation by id
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete Conversation
+      tags:
+      - Conversations
+    get:
+      description: Get a conversation by id
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Conversation'
+      summary: Get Conversation
+      tags:
+      - Conversations
+    put:
+      consumes:
+      - application/json
+      description: Update a conversation by id
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Conversation Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dtos.UpdateConversationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Conversation'
+      summary: Update Conversation
+      tags:
+      - Conversations
+  /api/v1/messages:
+    get:
+      description: Get messages for a conversation
+      parameters:
+      - description: Conversation ID
+        in: query
+        name: conversation_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Message'
+            type: array
+      summary: Get Messages
+      tags:
+      - Messages
+    post:
+      consumes:
+      - application/json
+      description: Create a new message
+      parameters:
+      - description: Message Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dtos.CreateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Message'
+      summary: Create Message
+      tags:
+      - Messages
+  /api/v1/messages/{id}:
+    delete:
+      description: Delete a message by id
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete Message
+      tags:
+      - Messages
+    get:
+      description: Get a message by id
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Message'
+      summary: Get Message
+      tags:
+      - Messages
+    put:
+      consumes:
+      - application/json
+      description: Update a message by id
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dtos.UpdateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Message'
+      summary: Update Message
+      tags:
+      - Messages
+  /health:
+    get:
+      description: Check the server health
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health Check
+      tags:
+      - Health
+swagger: "2.0"

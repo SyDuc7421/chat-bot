@@ -9,6 +9,12 @@ import (
 	"hsduc.com/rag/routes"
 )
 
+// @title           Chatbot RAG API
+// @version         1.0
+// @description     This is a RAG chatbot server.
+// @host            localhost:8080
+// @BasePath        /
+
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {

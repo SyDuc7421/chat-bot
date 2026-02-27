@@ -2,11 +2,17 @@ package routes
 
 import (
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"hsduc.com/rag/controllers"
+	_ "hsduc.com/rag/docs"
 )
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
+
+	// Swagger route
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Health Check Route
 	r.GET("/health", controllers.HealthCheck)

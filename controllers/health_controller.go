@@ -7,6 +7,12 @@ import (
 	"hsduc.com/rag/database"
 )
 
+// @Summary      Health Check
+// @Description  Check the server health
+// @Tags         Health
+// @Produce      json
+// @Success      200  {object}  map[string]interface{}
+// @Router       /health [get]
 func HealthCheck(c *gin.Context) {
 	// Optional: Check database connectivity
 	var dbStatus = "ok"
