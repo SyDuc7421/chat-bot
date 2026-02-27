@@ -35,8 +35,9 @@ func CreateMessage(c *gin.Context) {
 	}
 
 	// Verify conversation exists
+	userID := c.MustGet("userID").(uint)
 	var conversation models.Conversation
-	if err := database.DB.First(&conversation, input.ConversationID).Error; err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ?", input.ConversationID, userID).First(&conversation).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
 		return
 	}
@@ -67,6 +68,15 @@ func GetMessages(c *gin.Context) {
 		return
 	}
 
+	userID := c.MustGet("userID").(uint)
+
+	// Ensure user owns the conversation
+	var conversation models.Conversation
+	if err := database.DB.Where("id = ? AND user_id = ?", conversationID, userID).First(&conversation).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
+		return
+	}
+
 	var messages []models.Message
 	if err := database.DB.Where("conversation_id = ?", conversationID).Find(&messages).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch messages"})
@@ -85,9 +95,11 @@ func GetMessages(c *gin.Context) {
 // @Router       /api/v1/messages/{id} [get]
 func GetMessage(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.MustGet("userID").(uint)
 	var message models.Message
-
-	if err := database.DB.First(&message, id).Error; err != nil {
+	if err := database.DB.Joins("JOIN conversations on messages.conversation_id = conversations.id").
+		Where("messages.id = ? AND conversations.user_id = ?", id, userID).
+		First(&message).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
 		return
 	}
@@ -106,9 +118,11 @@ func GetMessage(c *gin.Context) {
 // @Router       /api/v1/messages/{id} [put]
 func UpdateMessage(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.MustGet("userID").(uint)
 	var message models.Message
-
-	if err := database.DB.First(&message, id).Error; err != nil {
+	if err := database.DB.Joins("JOIN conversations on messages.conversation_id = conversations.id").
+		Where("messages.id = ? AND conversations.user_id = ?", id, userID).
+		First(&message).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
 		return
 	}
@@ -134,9 +148,11 @@ func UpdateMessage(c *gin.Context) {
 // @Router       /api/v1/messages/{id} [delete]
 func DeleteMessage(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.MustGet("userID").(uint)
 	var message models.Message
-
-	if err := database.DB.First(&message, id).Error; err != nil {
+	if err := database.DB.Joins("JOIN conversations on messages.conversation_id = conversations.id").
+		Where("messages.id = ? AND conversations.user_id = ?", id, userID).
+		First(&message).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
 		return
 	}

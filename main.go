@@ -2,9 +2,9 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/joho/godotenv"
+	"hsduc.com/rag/config"
 	"hsduc.com/rag/database"
 	"hsduc.com/rag/routes"
 )
@@ -21,6 +21,8 @@ func main() {
 		log.Println("No .env file found, using default environment variables")
 	}
 
+	config.LoadConfig()
+
 	// Initialize Database Connections
 	database.ConnectMySQL()
 	database.ConnectRedis()
@@ -29,7 +31,7 @@ func main() {
 	r := routes.SetupRouter()
 
 	// Start server
-	port := os.Getenv("PORT")
+	port := config.App.Port
 	if port == "" {
 		port = "8080"
 	}

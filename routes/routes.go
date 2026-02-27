@@ -6,6 +6,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"hsduc.com/rag/controllers"
 	_ "hsduc.com/rag/docs"
+	"hsduc.com/rag/middleware"
 )
 
 func SetupRouter() *gin.Engine {
@@ -19,19 +20,34 @@ func SetupRouter() *gin.Engine {
 
 	api := r.Group("/api/v1")
 	{
-		// Conversation Routes
-		api.POST("/conversations", controllers.CreateConversation)
-		api.GET("/conversations", controllers.GetConversations)
-		api.GET("/conversations/:id", controllers.GetConversation)
-		api.PUT("/conversations/:id", controllers.UpdateConversation)
-		api.DELETE("/conversations/:id", controllers.DeleteConversation)
+		// Auth Routes
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", controllers.Register)
+			auth.POST("/login", controllers.Login)
+			auth.POST("/refresh", controllers.RefreshToken)
+		}
 
-		// Message Routes
-		api.POST("/messages", controllers.CreateMessage)
-		api.GET("/messages", controllers.GetMessages) // Use query ?conversation_id=X
-		api.GET("/messages/:id", controllers.GetMessage)
-		api.PUT("/messages/:id", controllers.UpdateMessage)
-		api.DELETE("/messages/:id", controllers.DeleteMessage)
+		// Protected Routes
+		protected := api.Group("")
+		protected.Use(middleware.AuthMiddleware())
+		{
+			protected.POST("/auth/logout", controllers.Logout)
+
+			// Conversation Routes
+			protected.POST("/conversations", controllers.CreateConversation)
+			protected.GET("/conversations", controllers.GetConversations)
+			protected.GET("/conversations/:id", controllers.GetConversation)
+			protected.PUT("/conversations/:id", controllers.UpdateConversation)
+			protected.DELETE("/conversations/:id", controllers.DeleteConversation)
+
+			// Message Routes
+			protected.POST("/messages", controllers.CreateMessage)
+			protected.GET("/messages", controllers.GetMessages) // Use query ?conversation_id=X
+			protected.GET("/messages/:id", controllers.GetMessage)
+			protected.PUT("/messages/:id", controllers.UpdateMessage)
+			protected.DELETE("/messages/:id", controllers.DeleteMessage)
+		}
 	}
 
 	return r

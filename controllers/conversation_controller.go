@@ -25,7 +25,8 @@ func CreateConversation(c *gin.Context) {
 		return
 	}
 
-	conversation := models.Conversation{Title: input.Title}
+	userID := c.MustGet("userID").(uint)
+	conversation := models.Conversation{Title: input.Title, UserID: userID}
 	if err := database.DB.Create(&conversation).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create conversation"})
 		return
@@ -41,8 +42,9 @@ func CreateConversation(c *gin.Context) {
 // @Success      200  {array}   models.Conversation
 // @Router       /api/v1/conversations [get]
 func GetConversations(c *gin.Context) {
+	userID := c.MustGet("userID").(uint)
 	var conversations []models.Conversation
-	if err := database.DB.Find(&conversations).Error; err != nil {
+	if err := database.DB.Where("user_id = ?", userID).Find(&conversations).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch conversations"})
 		return
 	}
@@ -59,9 +61,10 @@ func GetConversations(c *gin.Context) {
 // @Router       /api/v1/conversations/{id} [get]
 func GetConversation(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.MustGet("userID").(uint)
 	var conversation models.Conversation
 
-	if err := database.DB.Preload("Messages").First(&conversation, id).Error; err != nil {
+	if err := database.DB.Preload("Messages").Where("id = ? AND user_id = ?", id, userID).First(&conversation).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
 		return
 	}
@@ -80,9 +83,10 @@ func GetConversation(c *gin.Context) {
 // @Router       /api/v1/conversations/{id} [put]
 func UpdateConversation(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.MustGet("userID").(uint)
 	var conversation models.Conversation
 
-	if err := database.DB.First(&conversation, id).Error; err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&conversation).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
 		return
 	}
@@ -108,9 +112,10 @@ func UpdateConversation(c *gin.Context) {
 // @Router       /api/v1/conversations/{id} [delete]
 func DeleteConversation(c *gin.Context) {
 	id := c.Param("id")
+	userID := c.MustGet("userID").(uint)
 	var conversation models.Conversation
 
-	if err := database.DB.First(&conversation, id).Error; err != nil {
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&conversation).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
 		return
 	}
