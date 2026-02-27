@@ -21,6 +21,10 @@ definitions:
       conversation_id:
         type: integer
       role:
+        enum:
+        - user
+        - assistant
+        - system
         type: string
     required:
     - content

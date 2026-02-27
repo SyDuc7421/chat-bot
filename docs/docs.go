@@ -515,7 +515,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "role": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "user",
+                        "assistant",
+                        "system"
+                    ]
                 }
             }
         },
