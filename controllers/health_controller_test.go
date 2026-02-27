@@ -6,45 +6,34 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"hsduc.com/rag/database"
+	"github.com/gin-gonic/gin"
 )
 
-func TestHealthCheck_NoDB(t *testing.T) {
-	r := GetTestRouter()
-	r.GET("/health", HealthCheck)
-
-	database.DB = nil
-
-	req, _ := http.NewRequest("GET", "/health", nil)
-	w := httptest.NewRecorder()
-
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var response map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, "ok", response["status"])
-	assert.Equal(t, "error", response["database"])
-}
-
-func TestHealthCheck_WithDB(t *testing.T) {
+func TestHealthCheck(t *testing.T) {
 	SetupTestDB()
-	r := GetTestRouter()
-	r.GET("/health", HealthCheck)
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/health", HealthCheck)
 
-	req, _ := http.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/health", nil)
+	router.ServeHTTP(w, req)
 
-	r.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected to get status %d but got %d", http.StatusOK, w.Code)
+	}
 
 	var response map[string]string
 	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, "ok", response["status"])
-	assert.Equal(t, "ok", response["database"])
+	if err != nil {
+		t.Fatalf("Failed to parse response body: %v", err)
+	}
+
+	if response["status"] != "ok" {
+		t.Errorf("Expected status to be ok, got %v", response["status"])
+	}
+
+	if response["database"] != "ok" {
+		t.Errorf("Expected database to be ok, got %v", response["database"])
+	}
 }

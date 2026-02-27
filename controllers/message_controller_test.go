@@ -19,7 +19,7 @@ func TestCreateMessage(t *testing.T) {
 	r.POST("/messages", CreateMessage)
 
 	// Create a conversation first to associate the message
-	conversation := models.Conversation{Title: "Test Conversation"}
+	conversation := models.Conversation{Title: "Test Conversation", UserID: 1}
 	database.DB.Create(&conversation)
 
 	// Test valid input
@@ -56,7 +56,7 @@ func TestGetMessages(t *testing.T) {
 	r.GET("/messages", GetMessages)
 
 	// setup data
-	conversation := models.Conversation{Title: "Chat"}
+	conversation := models.Conversation{Title: "Chat", UserID: 1}
 	database.DB.Create(&conversation)
 	database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "user", Content: "Hello"})
 	database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "assistant", Content: "Hi there"})
@@ -80,4 +80,49 @@ func TestGetMessages(t *testing.T) {
 	wMissing := httptest.NewRecorder()
 	r.ServeHTTP(wMissing, reqMissing)
 	assert.Equal(t, http.StatusBadRequest, wMissing.Code)
+}
+
+func TestUpdateMessage(t *testing.T) {
+	SetupTestDB()
+	conversation := models.Conversation{Title: "Chat", UserID: 1}
+	database.DB.Create(&conversation)
+	message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "Old Text"}
+	database.DB.Create(&message)
+
+	r := GetTestRouter()
+	r.PUT("/messages/:id", UpdateMessage)
+
+	payload := []byte(`{"content":"New Text"}`)
+	req, _ := http.NewRequest("PUT", fmt.Sprintf("/messages/%d", message.ID), bytes.NewBuffer(payload))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var result models.Message
+	json.Unmarshal(w.Body.Bytes(), &result)
+	assert.Equal(t, "New Text", result.Content)
+}
+
+func TestDeleteMessage(t *testing.T) {
+	SetupTestDB()
+	conversation := models.Conversation{Title: "Chat", UserID: 1}
+	database.DB.Create(&conversation)
+	message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "To Be Deleted"}
+	database.DB.Create(&message)
+
+	r := GetTestRouter()
+	r.DELETE("/messages/:id", DeleteMessage)
+
+	req, _ := http.NewRequest("DELETE", fmt.Sprintf("/messages/%d", message.ID), nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Verify it's actually deleted
+	var check models.Message
+	err := database.DB.Where("id = ?", message.ID).First(&check).Error
+	assert.Error(t, err) // Should error because the soft delete set deleted_at
 }

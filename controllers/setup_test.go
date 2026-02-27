@@ -36,5 +36,10 @@ func SetupTestDB() {
 
 func GetTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	return gin.Default()
+	r := gin.Default()
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", uint(1))
+		c.Next()
+	})
+	return r
 }

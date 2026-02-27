@@ -98,7 +98,10 @@ func UpdateConversation(c *gin.Context) {
 		return
 	}
 
-	database.DB.Model(&conversation).Update("Title", input.Title)
+	if err := database.DB.Model(&conversation).Update("Title", input.Title).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update conversation"})
+		return
+	}
 
 	c.JSON(http.StatusOK, conversation)
 }
