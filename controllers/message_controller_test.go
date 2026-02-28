@@ -11,19 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"hsduc.com/rag/config"
 	"hsduc.com/rag/database"
+	"hsduc.com/rag/dtos"
 	"hsduc.com/rag/models"
 )
 
 func TestCreateMessage(t *testing.T) {
-	SetupTestDB()
-	r := GetTestRouter()
-	r.POST("/messages", CreateMessage)
-
-	// Create a conversation first to associate the message
-	conversation := models.Conversation{Title: "Test Conversation", UserID: 1}
-	database.DB.Create(&conversation)
-
-	// Create a mock OpenAI server
 	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := map[string]interface{}{
 			"choices": []map[string]interface{}{
@@ -46,117 +38,375 @@ func TestCreateMessage(t *testing.T) {
 	config.App.OpenAIApiKey = "test-key"
 	config.App.OpenAIBaseURL = mockOpenAI.URL
 
-	// Test valid input
-	payload := []byte(fmt.Sprintf(`{"conversation_id":%d, "role":"user", "content":"Hello Assistant"}`, conversation.ID))
-	req, _ := http.NewRequest("POST", "/messages", bytes.NewBuffer(payload))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	tests := []struct {
+		name           string
+		setup          func() []byte
+		expectedStatus int
+		checkResponse  func(t *testing.T, w *httptest.ResponseRecorder)
+	}{
+		{
+			name: "Success - User Message with LLM response",
+			setup: func() []byte {
+				conversation := models.Conversation{Title: "Test Conversation", UserID: 1}
+				database.DB.Create(&conversation)
+				payload := dtos.CreateMessageRequest{
+					ConversationID: conversation.ID,
+					Role:           "user",
+					Content:        "Hello Assistant",
+				}
+				body, _ := json.Marshal(payload)
+				return body
+			},
+			expectedStatus: http.StatusCreated,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]models.Message
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
 
-	r.ServeHTTP(w, req)
+				userMsg, exists := response["user_message"]
+				assert.True(t, exists)
+				assert.Equal(t, "user", userMsg.Role)
+				assert.Equal(t, "Hello Assistant", userMsg.Content)
+				assert.NotZero(t, userMsg.ID)
 
-	assert.Equal(t, http.StatusCreated, w.Code)
+				assistantMsg, aExists := response["assistant_message"]
+				assert.True(t, aExists)
+				assert.Equal(t, "assistant", assistantMsg.Role)
+				assert.Equal(t, "Mocked assistant response", assistantMsg.Content)
+				assert.NotZero(t, assistantMsg.ID)
+			},
+		},
+		{
+			name: "Error - Conversation Not Found",
+			setup: func() []byte {
+				payload := dtos.CreateMessageRequest{
+					ConversationID: 9999, // Non-existent
+					Role:           "user",
+					Content:        "Lost Message",
+				}
+				body, _ := json.Marshal(payload)
+				return body
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Conversation not found", response["error"])
+			},
+		},
+		{
+			name: "Error - Invalid JSON format",
+			setup: func() []byte {
+				return []byte(`{"conversation_id": "invalid"}`) // Invalid format
+			},
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NotEmpty(t, response["error"])
+			},
+		},
+	}
 
-	var response map[string]models.Message
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetupTestDB()
+			r := GetTestRouter()
+			r.POST("/messages", CreateMessage)
 
-	message, exists := response["user_message"]
-	assert.True(t, exists)
-	assert.Equal(t, conversation.ID, message.ConversationID)
-	assert.Equal(t, "user", message.Role)
-	assert.Equal(t, "Hello Assistant", message.Content)
-	assert.NotZero(t, message.ID)
+			payload := tt.setup()
+			req, _ := http.NewRequest("POST", "/messages", bytes.NewBuffer(payload))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
 
-	assistantMessage, aExists := response["assistant_message"]
-	assert.True(t, aExists)
-	assert.Equal(t, conversation.ID, assistantMessage.ConversationID)
-	assert.Equal(t, "assistant", assistantMessage.Role)
-	assert.Equal(t, "Mocked assistant response", assistantMessage.Content)
-	assert.NotZero(t, assistantMessage.ID)
+			r.ServeHTTP(w, req)
 
-	// Test invalid conversation ID (Not Found)
-	payloadInvalid := []byte(`{"conversation_id":999, "role":"user", "content":"Lost Message"}`)
-	reqInvalid, _ := http.NewRequest("POST", "/messages", bytes.NewBuffer(payloadInvalid))
-	reqInvalid.Header.Set("Content-Type", "application/json")
-	wInvalid := httptest.NewRecorder()
-
-	r.ServeHTTP(wInvalid, reqInvalid)
-	assert.Equal(t, http.StatusNotFound, wInvalid.Code)
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			tt.checkResponse(t, w)
+		})
+	}
 }
 
 func TestGetMessages(t *testing.T) {
-	SetupTestDB()
-	r := GetTestRouter()
-	r.GET("/messages", GetMessages)
+	tests := []struct {
+		name           string
+		setup          func() string
+		expectedStatus int
+		checkResponse  func(t *testing.T, w *httptest.ResponseRecorder)
+	}{
+		{
+			name: "Success - Get messages from conversation",
+			setup: func() string {
+				conversation := models.Conversation{Title: "Chat", UserID: 1}
+				database.DB.Create(&conversation)
+				database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "user", Content: "Hello"})
+				database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "assistant", Content: "Hi there"})
+				return fmt.Sprintf("/messages?conversation_id=%d", conversation.ID)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var messages []models.Message
+				err := json.Unmarshal(w.Body.Bytes(), &messages)
+				assert.NoError(t, err)
+				assert.Len(t, messages, 2)
+				assert.Equal(t, "Hello", messages[0].Content)
+				assert.Equal(t, "Hi there", messages[1].Content)
+			},
+		},
+		{
+			name: "Error - Conversation not found or belongs to another user",
+			setup: func() string {
+				// Another user's conversation
+				conversation := models.Conversation{Title: "Chat", UserID: 999}
+				database.DB.Create(&conversation)
+				return fmt.Sprintf("/messages?conversation_id=%d", conversation.ID)
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Conversation not found", response["error"])
+			},
+		},
+		{
+			name: "Error - Missing conversation_id",
+			setup: func() string {
+				return "/messages" // No query param
+			},
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "conversation_id is required", response["error"])
+			},
+		},
+	}
 
-	// setup data
-	conversation := models.Conversation{Title: "Chat", UserID: 1}
-	database.DB.Create(&conversation)
-	database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "user", Content: "Hello"})
-	database.DB.Create(&models.Message{ConversationID: conversation.ID, Role: "assistant", Content: "Hi there"})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetupTestDB()
+			r := GetTestRouter()
+			r.GET("/messages", GetMessages)
 
-	// test valid GET message by conversation_id
-	req, _ := http.NewRequest("GET", fmt.Sprintf("/messages?conversation_id=%d", conversation.ID), nil)
-	w := httptest.NewRecorder()
+			path := tt.setup()
+			req, _ := http.NewRequest("GET", path, nil)
+			w := httptest.NewRecorder()
 
-	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
+			r.ServeHTTP(w, req)
 
-	var messages []models.Message
-	err := json.Unmarshal(w.Body.Bytes(), &messages)
-	assert.NoError(t, err)
-	assert.Len(t, messages, 2)
-	assert.Equal(t, "Hello", messages[0].Content)
-	assert.Equal(t, "Hi there", messages[1].Content)
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			tt.checkResponse(t, w)
+		})
+	}
+}
 
-	// test GET missing conversation_id
-	reqMissing, _ := http.NewRequest("GET", "/messages", nil)
-	wMissing := httptest.NewRecorder()
-	r.ServeHTTP(wMissing, reqMissing)
-	assert.Equal(t, http.StatusBadRequest, wMissing.Code)
+func TestGetMessage(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func() (string, *models.Message)
+		expectedStatus int
+		checkResponse  func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message)
+	}{
+		{
+			name: "Success - Get single message",
+			setup: func() (string, *models.Message) {
+				conversation := models.Conversation{Title: "Chat", UserID: 1}
+				database.DB.Create(&conversation)
+				message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "Retrieve Me"}
+				database.DB.Create(&message)
+				return fmt.Sprintf("/messages/%d", message.ID), &message
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message) {
+				var result models.Message
+				err := json.Unmarshal(w.Body.Bytes(), &result)
+				assert.NoError(t, err)
+				assert.Equal(t, "Retrieve Me", result.Content)
+				assert.Equal(t, msg.ID, result.ID)
+			},
+		},
+		{
+			name: "Error - Message Not Found",
+			setup: func() (string, *models.Message) {
+				return "/messages/9999", nil
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Message not found", response["error"])
+			},
+		},
+		{
+			name: "Error - Message belongs to other user",
+			setup: func() (string, *models.Message) {
+				conversation := models.Conversation{Title: "Chat", UserID: 999}
+				database.DB.Create(&conversation)
+				message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "Not Yours"}
+				database.DB.Create(&message)
+				return fmt.Sprintf("/messages/%d", message.ID), nil
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Message not found", response["error"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetupTestDB()
+			r := GetTestRouter()
+			r.GET("/messages/:id", GetMessage)
+
+			path, msg := tt.setup()
+			req, _ := http.NewRequest("GET", path, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			tt.checkResponse(t, w, msg)
+		})
+	}
 }
 
 func TestUpdateMessage(t *testing.T) {
-	SetupTestDB()
-	conversation := models.Conversation{Title: "Chat", UserID: 1}
-	database.DB.Create(&conversation)
-	message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "Old Text"}
-	database.DB.Create(&message)
+	tests := []struct {
+		name           string
+		setup          func() (string, []byte)
+		expectedStatus int
+		checkResponse  func(t *testing.T, w *httptest.ResponseRecorder)
+	}{
+		{
+			name: "Success - Update message",
+			setup: func() (string, []byte) {
+				conversation := models.Conversation{Title: "Chat", UserID: 1}
+				database.DB.Create(&conversation)
+				message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "Old Text"}
+				database.DB.Create(&message)
 
-	r := GetTestRouter()
-	r.PUT("/messages/:id", UpdateMessage)
+				payload := dtos.UpdateMessageRequest{Content: "New Text"}
+				body, _ := json.Marshal(payload)
+				return fmt.Sprintf("/messages/%d", message.ID), body
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var result models.Message
+				json.Unmarshal(w.Body.Bytes(), &result)
+				assert.Equal(t, "New Text", result.Content)
+			},
+		},
+		{
+			name: "Error - Message not found",
+			setup: func() (string, []byte) {
+				payload := dtos.UpdateMessageRequest{Content: "New Text"}
+				body, _ := json.Marshal(payload)
+				return "/messages/9999", body
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Message not found", response["error"])
+			},
+		},
+		{
+			name: "Error - Invalid JSON format",
+			setup: func() (string, []byte) {
+				conversation := models.Conversation{Title: "Chat", UserID: 1}
+				database.DB.Create(&conversation)
+				message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "Old Text"}
+				database.DB.Create(&message)
+				return fmt.Sprintf("/messages/%d", message.ID), []byte(`{"content":}`)
+			},
+			expectedStatus: http.StatusBadRequest,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NotEmpty(t, response["error"])
+			},
+		},
+	}
 
-	payload := []byte(`{"content":"New Text"}`)
-	req, _ := http.NewRequest("PUT", fmt.Sprintf("/messages/%d", message.ID), bytes.NewBuffer(payload))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetupTestDB()
+			r := GetTestRouter()
+			r.PUT("/messages/:id", UpdateMessage)
 
-	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
+			path, body := tt.setup()
+			req, _ := http.NewRequest("PUT", path, bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
 
-	var result models.Message
-	json.Unmarshal(w.Body.Bytes(), &result)
-	assert.Equal(t, "New Text", result.Content)
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			tt.checkResponse(t, w)
+		})
+	}
 }
 
 func TestDeleteMessage(t *testing.T) {
-	SetupTestDB()
-	conversation := models.Conversation{Title: "Chat", UserID: 1}
-	database.DB.Create(&conversation)
-	message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "To Be Deleted"}
-	database.DB.Create(&message)
+	tests := []struct {
+		name           string
+		setup          func() (string, *models.Message)
+		expectedStatus int
+		checkResponse  func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message)
+	}{
+		{
+			name: "Success - Delete message",
+			setup: func() (string, *models.Message) {
+				conversation := models.Conversation{Title: "Chat", UserID: 1}
+				database.DB.Create(&conversation)
+				message := models.Message{ConversationID: conversation.ID, Role: "user", Content: "To Be Deleted"}
+				database.DB.Create(&message)
 
-	r := GetTestRouter()
-	r.DELETE("/messages/:id", DeleteMessage)
+				return fmt.Sprintf("/messages/%d", message.ID), &message
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message) {
+				// Verify soft delete
+				var check models.Message
+				err := database.DB.Where("id = ?", msg.ID).First(&check).Error
+				assert.Error(t, err)
 
-	req, _ := http.NewRequest("DELETE", fmt.Sprintf("/messages/%d", message.ID), nil)
-	w := httptest.NewRecorder()
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Message deleted", response["message"])
+			},
+		},
+		{
+			name: "Error - Message not found",
+			setup: func() (string, *models.Message) {
+				return "/messages/9999", nil
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder, msg *models.Message) {
+				var response map[string]string
+				json.Unmarshal(w.Body.Bytes(), &response)
+				assert.Equal(t, "Message not found", response["error"])
+			},
+		},
+	}
 
-	r.ServeHTTP(w, req)
-	assert.Equal(t, http.StatusOK, w.Code)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetupTestDB()
+			r := GetTestRouter()
+			r.DELETE("/messages/:id", DeleteMessage)
 
-	// Verify it's actually deleted
-	var check models.Message
-	err := database.DB.Where("id = ?", message.ID).First(&check).Error
-	assert.Error(t, err) // Should error because the soft delete set deleted_at
+			path, msg := tt.setup()
+			req, _ := http.NewRequest("DELETE", path, nil)
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			tt.checkResponse(t, w, msg)
+		})
+	}
 }

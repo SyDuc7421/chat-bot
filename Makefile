@@ -1,4 +1,4 @@
-.PHONY: all tidy vet fmt test swagger build run clean checks pre-push
+.PHONY: all tidy vet fmt test test-cover swagger build run clean checks pre-push
 
 # Default target
 all: checks build
@@ -18,6 +18,12 @@ fmt:
 # Run unit tests
 test:
 	go test -v ./...
+
+# Run tests and show coverage breakdown
+test-cover:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+	@echo "To view coverage in browser, run: go tool cover -html=coverage.out -o coverage.html"
 
 # Generate swagger docs
 swagger:
