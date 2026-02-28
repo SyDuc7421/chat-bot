@@ -10,6 +10,7 @@ import (
 	"hsduc.com/rag/database"
 	"hsduc.com/rag/dtos"
 	"hsduc.com/rag/models"
+	"hsduc.com/rag/services"
 )
 
 // @Summary      Create Message
@@ -18,7 +19,8 @@ import (
 // @Accept       json
 // @Produce      json
 // @Param        body body dtos.CreateMessageRequest true "Message Request"
-// @Success      201  {object}  models.Message
+// @Success      201  {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /api/v1/messages [post]
 func CreateMessage(c *gin.Context) {
 	var bodyInterface dtos.CreateMessageRequest
@@ -51,7 +53,38 @@ func CreateMessage(c *gin.Context) {
 	msgBytes, _ := json.Marshal(input)
 	database.Redis.Set(context.Background(), "last_message", msgBytes, 10*time.Minute)
 
-	c.JSON(http.StatusCreated, input)
+	// If the message is from the user, trigger the AI response
+	if input.Role == "user" {
+		// Fetch last 10 messages for context
+		var previousMessages []models.Message
+		database.DB.Where("conversation_id = ?", input.ConversationID).
+			Order("created_at desc").
+			Limit(10).
+			Find(&previousMessages)
+
+		// Reverse to pass in chronological order
+		for i, j := 0, len(previousMessages)-1; i < j; i, j = i+1, j-1 {
+			previousMessages[i], previousMessages[j] = previousMessages[j], previousMessages[i]
+		}
+
+		replyContent, err := services.GetChatbotResponse(previousMessages, []string{})
+		if err == nil && replyContent != "" {
+			assistantMsg := models.Message{
+				ConversationID: input.ConversationID,
+				Role:           "assistant",
+				Content:        replyContent,
+			}
+			database.DB.Create(&assistantMsg)
+
+			c.JSON(http.StatusCreated, gin.H{
+				"user_message":      input,
+				"assistant_message": assistantMsg,
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"user_message": input})
 }
 
 // @Summary      Get Messages
@@ -60,6 +93,7 @@ func CreateMessage(c *gin.Context) {
 // @Produce      json
 // @Param        conversation_id query string true "Conversation ID"
 // @Success      200  {array}   models.Message
+// @Security     BearerAuth
 // @Router       /api/v1/messages [get]
 func GetMessages(c *gin.Context) {
 	conversationID := c.Query("conversation_id")
@@ -92,6 +126,7 @@ func GetMessages(c *gin.Context) {
 // @Produce      json
 // @Param        id   path      string  true  "Message ID"
 // @Success      200  {object}  models.Message
+// @Security     BearerAuth
 // @Router       /api/v1/messages/{id} [get]
 func GetMessage(c *gin.Context) {
 	id := c.Param("id")
@@ -115,6 +150,7 @@ func GetMessage(c *gin.Context) {
 // @Param        id   path      string  true  "Message ID"
 // @Param        body body dtos.UpdateMessageRequest true "Message Request"
 // @Success      200  {object}  models.Message
+// @Security     BearerAuth
 // @Router       /api/v1/messages/{id} [put]
 func UpdateMessage(c *gin.Context) {
 	id := c.Param("id")
@@ -148,6 +184,7 @@ func UpdateMessage(c *gin.Context) {
 // @Produce      json
 // @Param        id   path      string  true  "Message ID"
 // @Success      200  {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /api/v1/messages/{id} [delete]
 func DeleteMessage(c *gin.Context) {
 	id := c.Param("id")

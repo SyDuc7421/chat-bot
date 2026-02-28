@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"hsduc.com/rag/config"
 	"hsduc.com/rag/database"
 	"hsduc.com/rag/models"
 )
@@ -22,6 +23,29 @@ func TestCreateMessage(t *testing.T) {
 	conversation := models.Conversation{Title: "Test Conversation", UserID: 1}
 	database.DB.Create(&conversation)
 
+	// Create a mock OpenAI server
+	mockOpenAI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"choices": []map[string]interface{}{
+				{
+					"message": map[string]interface{}{
+						"role":    "assistant",
+						"content": "Mocked assistant response",
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer mockOpenAI.Close()
+
+	if config.App == nil {
+		config.App = &config.Config{}
+	}
+	config.App.OpenAIApiKey = "test-key"
+	config.App.OpenAIBaseURL = mockOpenAI.URL
+
 	// Test valid input
 	payload := []byte(fmt.Sprintf(`{"conversation_id":%d, "role":"user", "content":"Hello Assistant"}`, conversation.ID))
 	req, _ := http.NewRequest("POST", "/messages", bytes.NewBuffer(payload))
@@ -32,13 +56,23 @@ func TestCreateMessage(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	var message models.Message
-	err := json.Unmarshal(w.Body.Bytes(), &message)
+	var response map[string]models.Message
+	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
+
+	message, exists := response["user_message"]
+	assert.True(t, exists)
 	assert.Equal(t, conversation.ID, message.ConversationID)
 	assert.Equal(t, "user", message.Role)
 	assert.Equal(t, "Hello Assistant", message.Content)
 	assert.NotZero(t, message.ID)
+
+	assistantMessage, aExists := response["assistant_message"]
+	assert.True(t, aExists)
+	assert.Equal(t, conversation.ID, assistantMessage.ConversationID)
+	assert.Equal(t, "assistant", assistantMessage.Role)
+	assert.Equal(t, "Mocked assistant response", assistantMessage.Content)
+	assert.NotZero(t, assistantMessage.ID)
 
 	// Test invalid conversation ID (Not Found)
 	payloadInvalid := []byte(`{"conversation_id":999, "role":"user", "content":"Lost Message"}`)

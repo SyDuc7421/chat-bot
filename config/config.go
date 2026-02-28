@@ -17,6 +17,8 @@ type Config struct {
 	RedisPassword string
 	RedisDB       int
 	JWTSecretKey  string
+	OpenAIApiKey  string
+	OpenAIBaseURL string
 }
 
 var App *Config
@@ -35,6 +37,8 @@ func LoadConfig() {
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDB:       redisDB,
 		JWTSecretKey:  getEnv("JWT_SECRET_KEY", "default_secret_key"),
+		OpenAIApiKey:  getEnv("OPENAI_API_KEY", ""),
+		OpenAIBaseURL: getEnv("OPENAI_BASE_URL", ""),
 	}
 
 	log.Println("Configuration loaded successfully")

@@ -16,6 +16,7 @@ import (
 // @Produce      json
 // @Param        body body dtos.CreateConversationRequest true "Conversation Request"
 // @Success      201  {object}  models.Conversation
+// @Security     BearerAuth
 // @Router       /api/v1/conversations [post]
 func CreateConversation(c *gin.Context) {
 	var input dtos.CreateConversationRequest
@@ -40,6 +41,7 @@ func CreateConversation(c *gin.Context) {
 // @Tags         Conversations
 // @Produce      json
 // @Success      200  {array}   models.Conversation
+// @Security     BearerAuth
 // @Router       /api/v1/conversations [get]
 func GetConversations(c *gin.Context) {
 	userID := c.MustGet("userID").(uint)
@@ -58,6 +60,7 @@ func GetConversations(c *gin.Context) {
 // @Produce      json
 // @Param        id   path      string  true  "Conversation ID"
 // @Success      200  {object}  models.Conversation
+// @Security     BearerAuth
 // @Router       /api/v1/conversations/{id} [get]
 func GetConversation(c *gin.Context) {
 	id := c.Param("id")
@@ -80,6 +83,7 @@ func GetConversation(c *gin.Context) {
 // @Param        id   path      string  true  "Conversation ID"
 // @Param        body body dtos.UpdateConversationRequest true "Conversation Request"
 // @Success      200  {object}  models.Conversation
+// @Security     BearerAuth
 // @Router       /api/v1/conversations/{id} [put]
 func UpdateConversation(c *gin.Context) {
 	id := c.Param("id")
@@ -112,6 +116,7 @@ func UpdateConversation(c *gin.Context) {
 // @Produce      json
 // @Param        id   path      string  true  "Conversation ID"
 // @Success      200  {object}  map[string]interface{}
+// @Security     BearerAuth
 // @Router       /api/v1/conversations/{id} [delete]
 func DeleteConversation(c *gin.Context) {
 	id := c.Param("id")

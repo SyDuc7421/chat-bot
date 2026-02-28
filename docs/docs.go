@@ -146,6 +146,11 @@ const docTemplate = `{
         },
         "/api/v1/conversations": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all conversations",
                 "produces": [
                     "application/json"
@@ -167,6 +172,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Create a new conversation",
                 "consumes": [
                     "application/json"
@@ -201,6 +211,11 @@ const docTemplate = `{
         },
         "/api/v1/conversations/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a conversation by id",
                 "produces": [
                     "application/json"
@@ -228,6 +243,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Update a conversation by id",
                 "consumes": [
                     "application/json"
@@ -267,6 +287,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete a conversation by id",
                 "produces": [
                     "application/json"
@@ -297,6 +322,11 @@ const docTemplate = `{
         },
         "/api/v1/messages": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get messages for a conversation",
                 "produces": [
                     "application/json"
@@ -327,6 +357,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Create a new message",
                 "consumes": [
                     "application/json"
@@ -353,7 +388,8 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/models.Message"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -361,6 +397,11 @@ const docTemplate = `{
         },
         "/api/v1/messages/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a message by id",
                 "produces": [
                     "application/json"
@@ -388,6 +429,11 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Update a message by id",
                 "consumes": [
                     "application/json"
@@ -427,6 +473,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete a message by id",
                 "produces": [
                     "application/json"
@@ -670,6 +721,14 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`

@@ -230,6 +230,8 @@ paths:
             items:
               $ref: '#/definitions/models.Conversation'
             type: array
+      security:
+      - BearerAuth: []
       summary: Get Conversations
       tags:
       - Conversations
@@ -251,6 +253,8 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/models.Conversation'
+      security:
+      - BearerAuth: []
       summary: Create Conversation
       tags:
       - Conversations
@@ -271,6 +275,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Delete Conversation
       tags:
       - Conversations
@@ -289,6 +295,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Conversation'
+      security:
+      - BearerAuth: []
       summary: Get Conversation
       tags:
       - Conversations
@@ -315,6 +323,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Conversation'
+      security:
+      - BearerAuth: []
       summary: Update Conversation
       tags:
       - Conversations
@@ -336,6 +346,8 @@ paths:
             items:
               $ref: '#/definitions/models.Message'
             type: array
+      security:
+      - BearerAuth: []
       summary: Get Messages
       tags:
       - Messages
@@ -356,7 +368,10 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/models.Message'
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
       summary: Create Message
       tags:
       - Messages
@@ -377,6 +392,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - BearerAuth: []
       summary: Delete Message
       tags:
       - Messages
@@ -395,6 +412,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Message'
+      security:
+      - BearerAuth: []
       summary: Get Message
       tags:
       - Messages
@@ -421,6 +440,8 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Message'
+      security:
+      - BearerAuth: []
       summary: Update Message
       tags:
       - Messages
@@ -438,4 +459,10 @@ paths:
       summary: Health Check
       tags:
       - Health
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
