@@ -182,7 +182,7 @@ func Logout(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Success      200  {object}  models.User
-// @Router       /api/v1/me [get]
+// @Router       /api/v1/auth/me [get]
 func GetMe(c *gin.Context) {
 	userIdRaw, exists := c.Get("userID")
 	if !exists {

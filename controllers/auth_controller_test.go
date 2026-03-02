@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"hsduc.com/rag/config"
@@ -134,4 +135,53 @@ func TestLogout(t *testing.T) {
 	// Check that session is deleted
 	val, _ := database.Redis.Get(context.Background(), "session:"+sessionID).Result()
 	assert.Empty(t, val)
+}
+
+func TestGetMe(t *testing.T) {
+	SetupTestDB()
+	setupAuthConfig()
+
+	// Create a test user
+	hash, _ := utils.HashPassword("password123")
+	user := models.User{Name: "GetMe User", Email: "getme@example.com", PasswordHash: hash}
+	database.DB.Create(&user)
+
+	r := GetTestRouter()
+	r.GET("/auth/me", func(c *gin.Context) {
+		// Mock the auth middleware by directly setting the userID
+		c.Set("userID", user.ID)
+		GetMe(c)
+	})
+
+	req, _ := http.NewRequest("GET", "/auth/me", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response models.User
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, user.ID, response.ID)
+	assert.Equal(t, "GetMe User", response.Name)
+	assert.Equal(t, "getme@example.com", response.Email)
+
+	// Test user not found
+	wNotFound := httptest.NewRecorder()
+	rNotFound := GetTestRouter()
+	rNotFound.GET("/auth/me", func(c *gin.Context) {
+		c.Set("userID", uint(9999)) // Non-existent user
+		GetMe(c)
+	})
+	reqNotFound, _ := http.NewRequest("GET", "/auth/me", nil)
+	rNotFound.ServeHTTP(wNotFound, reqNotFound)
+	assert.Equal(t, http.StatusNotFound, wNotFound.Code)
+
+	// Test unauthorized (no userID in context)
+	wUnauthorized := httptest.NewRecorder()
+	rUnauthorized := gin.Default()
+	rUnauthorized.GET("/auth/me", GetMe)
+	reqUnauthorized, _ := http.NewRequest("GET", "/auth/me", nil)
+	rUnauthorized.ServeHTTP(wUnauthorized, reqUnauthorized)
+	assert.Equal(t, http.StatusUnauthorized, wUnauthorized.Code)
 }

@@ -48,7 +48,7 @@ func SetupRouter() *gin.Engine {
 		protected.Use(middleware.AuthMiddleware())
 		{
 			protected.POST("/auth/logout", controllers.Logout)
-			protected.GET("/me", controllers.GetMe)
+			protected.GET("/auth/me", controllers.GetMe)
 
 			// Conversation Routes
 			protected.POST("/conversations", controllers.CreateConversation)
