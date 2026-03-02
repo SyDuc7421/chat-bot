@@ -1,9 +1,11 @@
 package routes
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"hsduc.com/rag/config"
 	"hsduc.com/rag/controllers"
 	_ "hsduc.com/rag/docs"
 	"hsduc.com/rag/middleware"
@@ -11,6 +13,19 @@ import (
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
+
+	origins := []string{"http://localhost:3000", "http://localhost:5173"}
+	if config.App.FRONTEND_BASE_URL != "" && config.App.FRONTEND_BASE_URL != "http://localhost:3000" && config.App.FRONTEND_BASE_URL != "http://localhost:5173" {
+		origins = append(origins, config.App.FRONTEND_BASE_URL)
+	}
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     origins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	// Swagger route
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -33,6 +48,7 @@ func SetupRouter() *gin.Engine {
 		protected.Use(middleware.AuthMiddleware())
 		{
 			protected.POST("/auth/logout", controllers.Logout)
+			protected.GET("/me", controllers.GetMe)
 
 			// Conversation Routes
 			protected.POST("/conversations", controllers.CreateConversation)

@@ -328,6 +328,21 @@ paths:
       summary: Update Conversation
       tags:
       - Conversations
+  /api/v1/me:
+    get:
+      description: Get info of logging in user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - Auth
   /api/v1/messages:
     get:
       description: Get messages for a conversation
