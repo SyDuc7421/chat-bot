@@ -22,7 +22,8 @@ rag_app
 
 # Environment variables
 .env
-
+.env.*
+!.env.example
 # MacOS specific
 .DS_Store
 
