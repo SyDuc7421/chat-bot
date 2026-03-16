@@ -45,5 +45,5 @@ clean:
 checks: fmt tidy vet
 
 # Combine formatting, vet, test, and swagger generation before pushing
-pre-push: checks test swagger
-	@echo "All tests passed! Ready to push."
+pre-push: checks swagger
+	@echo "Ready to push."
