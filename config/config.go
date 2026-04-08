@@ -20,12 +20,18 @@ type Config struct {
 	OpenAIApiKey      string
 	OpenAIBaseURL     string
 	FRONTEND_BASE_URL string
+	MinioEndpoint     string
+	MinioAccessKey    string
+	MinioSecretKey    string
+	MinioBucket       string
+	MinioUseSSL       bool
 }
 
 var App *Config
 
 func LoadConfig() {
 	redisDB, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
+	minioUseSSL, _ := strconv.ParseBool(getEnv("MINIO_USE_SSL", "false"))
 
 	App = &Config{
 		Port:              getEnv("PORT", "8080"),
@@ -41,6 +47,11 @@ func LoadConfig() {
 		OpenAIApiKey:      getEnv("OPENAI_API_KEY", ""),
 		OpenAIBaseURL:     getEnv("OPENAI_BASE_URL", ""),
 		FRONTEND_BASE_URL: getEnv("FRONTEND_BASE_URL", "http://localhost:3000"),
+		MinioEndpoint:     getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		MinioAccessKey:    getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MinioSecretKey:    getEnv("MINIO_SECRET_KEY", "minioadmin"),
+		MinioBucket:       getEnv("MINIO_BUCKET", "documents"),
+		MinioUseSSL:       minioUseSSL,
 	}
 
 	log.Println("Configuration loaded successfully")

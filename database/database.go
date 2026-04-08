@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -15,6 +17,7 @@ import (
 var (
 	DB    *gorm.DB
 	Redis *redis.Client
+	Minio *minio.Client
 )
 
 func ConnectMySQL() {
@@ -35,7 +38,7 @@ func ConnectMySQL() {
 	log.Println("Connected to MySQL successfully")
 
 	// Migrate models
-	err = DB.AutoMigrate(&models.User{}, &models.Conversation{}, &models.Message{})
+	err = DB.AutoMigrate(&models.User{}, &models.Conversation{}, &models.Message{}, &models.Document{}, &models.DocumentFile{})
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
@@ -54,4 +57,29 @@ func ConnectRedis() {
 	}
 
 	log.Println("Connected to Redis successfully")
+}
+
+func ConnectMinio() {
+	var err error
+	Minio, err = minio.New(config.App.MinioEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(config.App.MinioAccessKey, config.App.MinioSecretKey, ""),
+		Secure: config.App.MinioUseSSL,
+	})
+	if err != nil {
+		log.Fatal("Failed to connect to MinIO:", err)
+	}
+
+	ctx := context.Background()
+	exists, err := Minio.BucketExists(ctx, config.App.MinioBucket)
+	if err != nil {
+		log.Fatal("Failed to check MinIO bucket:", err)
+	}
+	if !exists {
+		if err = Minio.MakeBucket(ctx, config.App.MinioBucket, minio.MakeBucketOptions{}); err != nil {
+			log.Fatal("Failed to create MinIO bucket:", err)
+		}
+		log.Printf("Created MinIO bucket: %s", config.App.MinioBucket)
+	}
+
+	log.Println("Connected to MinIO successfully")
 }

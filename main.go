@@ -30,6 +30,7 @@ func main() {
 	// Initialize Database Connections
 	database.ConnectMySQL()
 	database.ConnectRedis()
+	database.ConnectMinio()
 
 	// Setup Routes
 	r := routes.SetupRouter()

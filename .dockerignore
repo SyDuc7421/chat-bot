@@ -1,0 +1,7 @@
+.env
+.env.local
+tmp/
+*.log
+.git/
+.claude/
+docs/

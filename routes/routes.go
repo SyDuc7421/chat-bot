@@ -63,6 +63,18 @@ func SetupRouter() *gin.Engine {
 			protected.GET("/messages/:id", controllers.GetMessage)
 			protected.PUT("/messages/:id", controllers.UpdateMessage)
 			protected.DELETE("/messages/:id", controllers.DeleteMessage)
+
+			// Document Routes
+			protected.POST("/documents", controllers.CreateDocument)
+			protected.GET("/documents", controllers.GetDocuments)
+			protected.GET("/documents/:id", controllers.GetDocument)
+			protected.PUT("/documents/:id", controllers.UpdateDocument)
+			protected.DELETE("/documents/:id", controllers.DeleteDocument)
+
+			// Document File Routes
+			protected.POST("/documents/:id/files", controllers.UploadDocumentFile)
+			protected.GET("/documents/:id/files/:fileId/download", controllers.GetDocumentFileDownloadURL)
+			protected.DELETE("/documents/:id/files/:fileId", controllers.DeleteDocumentFile)
 		}
 	}
 
