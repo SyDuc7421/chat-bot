@@ -14,6 +14,15 @@ definitions:
     required:
     - title
     type: object
+  dtos.CreateDocumentRequest:
+    properties:
+      description:
+        type: string
+      title:
+        type: string
+    required:
+    - title
+    type: object
   dtos.CreateMessageRequest:
     properties:
       content:
@@ -69,6 +78,13 @@ definitions:
     required:
     - title
     type: object
+  dtos.UpdateDocumentRequest:
+    properties:
+      description:
+        type: string
+      title:
+        type: string
+    type: object
   dtos.UpdateMessageRequest:
     properties:
       content:
@@ -94,6 +110,46 @@ definitions:
         $ref: '#/definitions/models.User'
       user_id:
         type: integer
+    type: object
+  models.Document:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      files:
+        items:
+          $ref: '#/definitions/models.DocumentFile'
+        type: array
+      id:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_id:
+        type: integer
+    type: object
+  models.DocumentFile:
+    properties:
+      content_type:
+        type: string
+      created_at:
+        type: string
+      document_id:
+        type: integer
+      file_name:
+        type: string
+      id:
+        type: integer
+      object_key:
+        type: string
+      size:
+        type: integer
+      updated_at:
+        type: string
     type: object
   models.Message:
     properties:
@@ -343,6 +399,201 @@ paths:
       summary: Update Conversation
       tags:
       - Conversations
+  /api/v1/documents:
+    get:
+      description: Get all documents for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Document'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Documents
+      tags:
+      - Documents
+    post:
+      consumes:
+      - application/json
+      description: Create a new document
+      parameters:
+      - description: Create Document Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dtos.CreateDocumentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Document'
+      security:
+      - BearerAuth: []
+      summary: Create Document
+      tags:
+      - Documents
+  /api/v1/documents/{id}:
+    delete:
+      description: Delete a document and all its files
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Document
+      tags:
+      - Documents
+    get:
+      description: Get a document by ID with its files
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Document'
+      security:
+      - BearerAuth: []
+      summary: Get Document
+      tags:
+      - Documents
+    put:
+      consumes:
+      - application/json
+      description: Update a document's title or description
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update Document Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/dtos.UpdateDocumentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Document'
+      security:
+      - BearerAuth: []
+      summary: Update Document
+      tags:
+      - Documents
+  /api/v1/documents/{id}/files:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a file and attach it to a document
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.DocumentFile'
+      security:
+      - BearerAuth: []
+      summary: Upload File to Document
+      tags:
+      - Documents
+  /api/v1/documents/{id}/files/{fileId}:
+    delete:
+      description: Delete a file from a document
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: File ID
+        in: path
+        name: fileId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Document File
+      tags:
+      - Documents
+  /api/v1/documents/{id}/files/{fileId}/download:
+    get:
+      description: Get a presigned download URL for a document file (valid 15 minutes)
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: File ID
+        in: path
+        name: fileId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Download URL
+      tags:
+      - Documents
   /api/v1/messages:
     get:
       description: Get messages for a conversation
